@@ -1,12 +1,11 @@
-//jshint esversion:6
-
 //Initaite
 require('dotenv').config();
 const express = require('express');
 const ejs = require('ejs');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
-const encrypt = require('mongoose-encryption');
+// const encrypt = require('mongoose-encryption'); // <-- Security level 2 (encryption)
+const md5 = require('md5'); //<-- Security level 3 (Hash)
 const app = express();
 
 app.use(express.static("public"));
@@ -27,10 +26,10 @@ const userSchema = new mongoose.Schema ({
   password: String
 });
 
-userSchema.plugin(encrypt, {
-  secret: process.env.SECRET_KEY,
-  encryptedFields: ['password']
-});
+// userSchema.plugin(encrypt, {
+//   secret: process.env.SECRET_KEY,
+//   encryptedFields: ['password']
+// }); // <-- Security level 2 (encryption)
 
 const User = new mongoose.model("User", userSchema);
 
@@ -53,7 +52,7 @@ app.get('/register', (req, res) => {
 app.post('/register', (req, res) => {
   const newUser = new User({
     email: req.body.username,
-    password: req.body.password
+    password: md5(req.body.password) //<-- Security level 3 (Hash)
   });
 
   newUser.save((err) => {
@@ -67,7 +66,7 @@ app.post('/register', (req, res) => {
 
 app.post('/login', (req, res) => {
   const username = req.body.username;
-  const password = req.body.password;
+  const password = md5(req.body.password); //<-- Security level 3 (Hash)
 
   User.findOne({email: username}, (err, foundUser) => {
     if (!err) {
