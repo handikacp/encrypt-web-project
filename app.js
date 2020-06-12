@@ -42,7 +42,8 @@ const userSchema = new mongoose.Schema ({
   email: String,
   password: String,
   googleId: String,
-  facebookId: String
+  facebookId: String,
+  secret: String
 });
 
 // -- Passport Login Setup
@@ -128,8 +129,20 @@ app.get('/register', (req, res) => {
 });
 
 app.get('/secrets', (req, res) => {
+  User.find({"secret": {$ne: null}}, (err, foundUsers) => {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUsers) {
+        res.render("secrets", {usersWithSecrets: foundUsers});
+      }
+    }
+  });
+});
+
+app.get('/submit', (req, res) => {
   if (req.isAuthenticated()) {
-    res.render("secrets");
+    res.render("submit");
   } else {
     res.redirect('/login');
   }
@@ -170,6 +183,23 @@ app.post('/login', (req, res) => {
       })
     }
   })
+});
+
+app.post('/submit', (req, res) => {
+  const submittedSecret = req.body.secret;
+
+  User.findById(req.user.id, (err, foundUser) => {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUser) {
+        foundUser.secret = submittedSecret;
+        foundUser.save(() => {
+          res.redirect('/secrets');
+        });
+      }
+    }
+  });
 });
 
 
