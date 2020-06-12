@@ -7,6 +7,8 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const findOrCreate = require('mongoose-findorcreate');
 
 const app = express();
 
@@ -16,6 +18,7 @@ app.use(bodyParser.urlencoded ({
   extended: true
 }));
 
+// -- Passport Login Setup
 app.use(session({
   secret: "Our Little Secrets.",
   resave: false,
@@ -36,22 +39,58 @@ mongoose.set("useCreateIndex", true);
 
 const userSchema = new mongoose.Schema ({
   email: String,
-  password: String
+  password: String,
+  googleId: String
 });
 
+// -- Passport Login Setup
 userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate);
 
 const User = new mongoose.model("User", userSchema);
 
 passport.use(User.createStrategy());
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser((id, done) => {
+  User.findById(id, (err, user) => {
+    done(err, user);
+  });
+});
+
+// -- OAuth Google Setup
+passport.use(new GoogleStrategy ({
+  clientID: process.env.CLIENT_ID,
+  clientSecret: process.env.CLIENT_SECRET,
+  callbackURL: "http://localhost:3000/auth/google/secrets",
+  userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+},
+(accessToken, refreshToken, profile, cb) => {
+  User.findOrCreate({googleId: profile.id}, (err, user) => {
+    return cb(err, user);
+  });
+}
+));
 
 
 //GET Section
 app.get('/', (req, res) => {
   res.render("home");
 });
+
+app.get('/auth/google',
+passport.authenticate("google", {scope: ["profile"]})
+);
+
+app.get('/auth/google/secrets',
+passport.authenticate("google", {failureRedirect: '/login'}),
+(req, res) => {
+  res.redirect('/secrets');
+}
+);
 
 app.get('/login', (req, res) => {
   res.render("login");
